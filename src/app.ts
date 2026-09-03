@@ -51,6 +51,7 @@ export function createApp(deps: Dependencies): express.Express {
   app.use((_req, res, next) => {
     const cspNonce = randomBytes(16).toString("base64");
     res.locals.cspNonce = cspNonce;
+    res.set("X-Content-Type-Options", "nosniff");
     next();
   });
 
