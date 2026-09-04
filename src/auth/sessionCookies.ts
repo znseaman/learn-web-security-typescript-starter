@@ -4,6 +4,9 @@ const SESSION_COOKIE_NAME = "session_id";
 
 const sessionCookieOptions = {
   path: "/",
+  httpOnly: true,
+  secure: true,
+  sameSite: "lax",
 } satisfies CookieOptions;
 
 type CookieSession = {
