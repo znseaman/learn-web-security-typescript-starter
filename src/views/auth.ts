@@ -116,7 +116,7 @@ export function renderPasswordResetRequestConfirmationPage(
   resetLink?: string,
 ): string {
   return renderPasswordResetRequestPage(
-    "An account exists for that email, Bear Mail will send a reset link shortly.",
+    "If an account exists for that email, Bear Mail will send a reset link shortly.",
     resetLink,
   );
 }
