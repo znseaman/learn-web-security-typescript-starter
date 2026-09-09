@@ -42,7 +42,7 @@ export function createOrdersRouter(deps: Dependencies): Router {
     }
 
     const order = findOrderById(db, orderId);
-    if (!order) {
+    if (!order || order.user_id !== current.user.id) {
       sendErrorPage(
         res,
         404,
