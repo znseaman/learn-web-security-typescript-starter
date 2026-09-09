@@ -108,7 +108,6 @@ export function createCheckoutRouter(deps: Dependencies): Router {
     const shippingCity = String(req.body.shippingCity ?? "").trim();
     const shippingRegion = String(req.body.shippingRegion ?? "").trim();
     const shippingPostalCode = String(req.body.shippingPostalCode ?? "").trim();
-    const discountCents = Number(req.body.discountCents ?? 0);
 
     if (
       !shippingName ||
@@ -171,7 +170,6 @@ export function createCheckoutRouter(deps: Dependencies): Router {
         db,
         current.user.id,
         items,
-        discountCents,
         shippingDetails,
         adminNotes,
         deps.keyring,
