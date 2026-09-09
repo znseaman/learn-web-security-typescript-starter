@@ -81,7 +81,7 @@ export function verifyAndConsumeBackupCode(
   userId: number,
   code: string,
 ): boolean {
-  return hasUnusedBackupCode(db, userId, code);
+  return consumeUnusedBackupCode(db, userId, code);
 }
 
 export function countRecentRecoveryAttempts(
