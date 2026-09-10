@@ -32,6 +32,11 @@ export function createFilesRouter(deps: Dependencies): Router {
       return;
     }
 
+    if (current.user.role === "customer" && current.user.id !== file.user_id) {
+      sendErrorPage(res, 404, "File Not Found", "We couldn't find that file.");
+      return;
+    }
+
     res.redirect(createSignedDownloadPath(deps.downloadSigningKey, file.id));
   });
 
