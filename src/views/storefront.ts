@@ -41,7 +41,7 @@ export function renderSearchPage(
   const resultSummary =
     query.length === 0
       ? "Enter a search term to find plushies."
-      : `${products.length} result${products.length === 1 ? "" : "s"} for “${query}”`;
+      : `${products.length} result${products.length === 1 ? "" : "s"} for “${escapeHtml(query)}”`;
   const items =
     products.length > 0
       ? renderProductList(products, current?.session.csrf_token, cartQuantities)
@@ -52,7 +52,7 @@ export function renderSearchPage(
       <nav class="page-nav" aria-label="Primary"><a class="brand-link" href="/">Bearly Secure</a>${cartLink}${sessionLink}</nav>
       <p class="eyebrow">Search</p>
       <h1>Find a Friend</h1>
-      ${renderSearchForm(query)}
+      ${renderSearchForm(escapeHtml(query))}
       <p class="search-summary">${resultSummary}</p>
       <ul class="products search-results">${items}</ul>
     `,
