@@ -54,7 +54,7 @@ export function createApp(deps: Dependencies): express.Express {
     res.set("X-Content-Type-Options", "nosniff");
     res.set(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';",
+      `default-src 'self'; script-src 'self' 'nonce-${cspNonce}'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';`,
     );
     next();
   });
