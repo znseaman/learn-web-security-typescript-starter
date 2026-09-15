@@ -62,7 +62,7 @@ export function renderCheckoutPage(
         <article class="card">
           <h2>Delivery Estimate</h2>
           <p>Check when Acorn Express can deliver your new friend.</p>
-          <iframe class="shipping-widget" src="/shipping-widget.html" title="Acorn Express shipping estimate"></iframe>
+          <iframe sandbox="allow-scripts" class="shipping-widget" src="/shipping-widget.html" title="Acorn Express shipping estimate"></iframe>
         </article>
       </section>`,
   );
