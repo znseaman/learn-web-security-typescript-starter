@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import cors from "cors";
+import helmet from "helmet";
 import express from "express";
 import { validateRequestOrigin } from "./csrf.ts";
 import type { Dependencies } from "./dependencies.ts";
@@ -30,18 +31,36 @@ export function createApp(deps: Dependencies): express.Express {
     const cspNonce = randomBytes(16).toString("base64");
     res.locals.cspNonce = cspNonce;
     res.set("X-Content-Type-Options", "nosniff");
-    res.set(
-      "Content-Security-Policy",
-      `default-src 'self'; script-src 'self' 'nonce-${cspNonce}'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self';`,
-    );
-    res.set("X-Frame-Options", "SAMEORIGIN");
-    res.set("Referrer-Policy", "strict-origin-when-cross-origin");
     next();
   });
-
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          scriptSrc: [
+            "'self'",
+            (_req, res) =>
+              `'nonce-${String((res as express.Response).locals.cspNonce)}'`,
+          ],
+          styleSrc: ["'self'"],
+          frameSrc: ["'self'"],
+          upgradeInsecureRequests: null,
+        },
+      },
+      referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+      xFrameOptions: { action: "sameorigin" },
+      strictTransportSecurity: false,
+    }),
+  );
   app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "bearly-secure" });
   });
+  app.use(
+    ["/shipping-widget.css", "/shipping-widget.js"],
+    helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    }),
+  );
   app.use(express.static("public"));
   app.use(
     "/vendor/simplewebauthn",
