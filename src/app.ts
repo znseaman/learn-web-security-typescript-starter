@@ -57,6 +57,7 @@ export function createApp(deps: Dependencies): express.Express {
       `default-src 'self'; script-src 'self' 'nonce-${cspNonce}'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self';`,
     );
     res.set("X-Frame-Options", "SAMEORIGIN");
+    res.set("Referrer-Policy", "strict-origin-when-cross-origin");
     next();
   });
 
