@@ -1,0 +1,11 @@
+.env*
+.git/
+node_modules/
+dist/
+coverage/
+tmp/
+*.log
+data/*.sqlite*
+data/bulk-tax-documents/
+data/uploads/*
+!data/uploads/mystery-shack-tax-exemption.pdf
