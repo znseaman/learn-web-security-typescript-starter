@@ -51,7 +51,10 @@ export function initDependencies(
     maxRequestBodyBytes: 32 * 1024,
     maxUploadBytes: 1024 * 1024,
     maxPublicProductResults: 50,
-    downloadSigningKey: randomBytes(32),
+    downloadSigningKey: Buffer.from(
+      verifyDownloadSigningKey(requireEnv("DOWNLOAD_SIGNING_KEY")),
+      "hex",
+    ),
     keyring: loadOptionalKeyring(env),
     pawPalApiKey: requireEnv("PAWPAL_API_KEY"),
   };
@@ -65,4 +68,13 @@ export function requireEnv(name: string): string {
     throw new Error(`Missing required environment variable: ${name}`);
   }
   return value;
+}
+
+export function verifyDownloadSigningKey(key: string): string {
+  if (key.length !== 64) {
+    throw new Error(
+      `Invalid DOWNLOAD_SIGNING_KEY length: ${key.length} is not 64 characters`,
+    );
+  }
+  return key;
 }

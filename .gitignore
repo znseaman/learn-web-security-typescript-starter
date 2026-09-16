@@ -10,3 +10,4 @@ data/bulk-tax-documents/
 .env
 .env.local
 .env.*.local
+.env.production
