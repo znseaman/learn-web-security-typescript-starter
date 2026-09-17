@@ -5,6 +5,7 @@
   "description": "Intentionally vulnerable starter app for Boot.dev's Web Security course",
   "type": "module",
   "scripts": {
+    "audit:security": "npm audit --audit-level=high",
     "attacker-lab": "node scripts/attacker-lab.mjs",
     "db:reset": "node --env-file-if-exists=.env src/db/seed.ts",
     "dev": "node --watch --env-file-if-exists=.env src/main.ts",
