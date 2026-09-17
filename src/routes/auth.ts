@@ -81,7 +81,7 @@ export function createAuthRouter(deps: Dependencies): Router {
     "That verification attempt is no longer valid. Log in again.";
 
   router.get("/login", (req, res) => {
-    const returnTo = String(req.query.returnTo ?? "/");
+    const returnTo = safeReturnTo(String(req.query.returnTo ?? "/"));
     const error =
       req.query.verification === "restart"
         ? VERIFICATION_RESTART_MESSAGE
@@ -196,7 +196,7 @@ export function createAuthRouter(deps: Dependencies): Router {
   router.post("/login", async (req, res) => {
     const email = normalizeEmail(String(req.body.email ?? ""));
     const password = String(req.body.password ?? "");
-    const returnTo = String(req.body.returnTo ?? "/");
+    const returnTo = safeReturnTo(String(req.body.returnTo ?? "/"));
     const user = findUserByEmail(db, email);
 
     if (!user || !(await verifyPassword(password, user.password_hash))) {
@@ -249,7 +249,7 @@ export function createAuthRouter(deps: Dependencies): Router {
   });
 
   router.post("/login/totp", (req, res) => {
-    const requestedReturnTo = String(req.body.returnTo ?? "/");
+    const requestedReturnTo = safeReturnTo(String(req.body.returnTo ?? "/"));
     const challengeToken = getTotpLoginChallengeToken(req.header("cookie"));
     const challenge = challengeToken
       ? findTotpLoginChallenge(db, challengeToken)
@@ -520,7 +520,7 @@ export function createAuthRouter(deps: Dependencies): Router {
 
   function verificationRestartLoginPath(returnTo: unknown = "/"): string {
     const params = new URLSearchParams({ verification: "restart" });
-    const returnPath = String(returnTo);
+    const returnPath = safeReturnTo(String(returnTo));
     if (returnPath !== "/") {
       params.set("returnTo", returnPath);
     }
