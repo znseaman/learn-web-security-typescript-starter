@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { openDatabase } from "./db/index.ts";
@@ -16,6 +15,7 @@ export type Dependencies = {
   keyring: Keyring | undefined;
   db: DatabaseSync;
   pawPalApiKey: string;
+  trustedProxyHops: number;
 };
 
 function parseNonNegativeInteger(value: string, name: string): number {
@@ -57,6 +57,10 @@ export function initDependencies(
     ),
     keyring: loadOptionalKeyring(env),
     pawPalApiKey: requireEnv("PAWPAL_API_KEY"),
+    trustedProxyHops: parseNonNegativeInteger(
+      env.TRUST_PROXY_HOPS ?? "0",
+      "TRUST_PROXY_HOPS",
+    ),
   };
 
   return { ...values, db: openDatabase(values.databasePath) };
