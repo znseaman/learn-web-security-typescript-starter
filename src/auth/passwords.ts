@@ -4,6 +4,13 @@ import argon2 from "argon2";
 export const MAX_PASSWORD_LENGTH = 128;
 const LEGACY_SHA256_PATTERN = /^[a-f0-9]{64}$/i;
 
+const PASSWORD_HASH_OPTIONS = {
+  type: argon2.argon2id,
+  memoryCost: 19 * 1024,
+  timeCost: 2,
+  parallelism: 1,
+} as const;
+
 export async function hashPassword(password: string): Promise<string> {
   if (password.length > MAX_PASSWORD_LENGTH) {
     throw new RangeError(
@@ -11,12 +18,7 @@ export async function hashPassword(password: string): Promise<string> {
     );
   }
 
-  return argon2.hash(password, {
-    type: argon2.argon2id,
-    memoryCost: 19 * 1024,
-    timeCost: 2,
-    parallelism: 1,
-  });
+  return argon2.hash(password, PASSWORD_HASH_OPTIONS);
 }
 
 export async function verifyPassword(
@@ -38,4 +40,12 @@ export async function verifyPassword(
   } catch {
     return false;
   }
+}
+
+export function passwordNeedsRehash(passwordHash: string) {
+  if (LEGACY_SHA256_PATTERN.test(passwordHash)) {
+    return true;
+  }
+
+  return argon2.needsRehash(passwordHash, PASSWORD_HASH_OPTIONS);
 }
