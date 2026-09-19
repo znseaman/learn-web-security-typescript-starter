@@ -1,3 +1,5 @@
+import { encrypt, decrypt } from "./encryption.ts";
+
 const ACTIVE_VERSION_ENV = "DATA_ENCRYPTION_ACTIVE_VERSION";
 const KEY_ENV_PREFIX = "DATA_ENCRYPTION_KEY_";
 const KEY_HEX_PATTERN = /^[0-9a-f]{64}$/i;
@@ -78,16 +80,25 @@ export function requireKeyring(keyring: Keyring | undefined): Keyring {
 
 export function encryptStringWithKeyring(
   value: string,
-  _keyring: Keyring | undefined,
+  keyring: Keyring | undefined,
 ): string {
-  return value;
+  const encryptedPayload = encryptWithKeyring(
+    Buffer.from(value, "utf-8"),
+    keyring,
+  );
+  const serializedPayload = serializeEncryptedPayload(encryptedPayload);
+  return serializedPayload.toString("utf-8");
 }
 
 export function decryptStringWithKeyring(
   value: string,
-  _keyring: Keyring | undefined,
+  keyring: Keyring | undefined,
 ): string {
-  return value;
+  const deserializedPayload = deserializeEncryptedPayload(
+    Buffer.from(value, "utf-8"),
+  );
+  const decryptedPayload = decryptWithKeyring(deserializedPayload, keyring);
+  return decryptedPayload.toString("utf-8");
 }
 
 export function serializeEncryptedPayload(
@@ -158,4 +169,33 @@ function decodeBase64(value: string): Buffer {
   }
 
   return decoded;
+}
+
+export function encryptWithKeyring(
+  plaintext: Buffer,
+  keyring: Keyring | undefined,
+): VersionedEncryptedPayload {
+  const configuredKeyring = requireKeyring(keyring);
+  const key = configuredKeyring.keys.get(configuredKeyring.activeVersion);
+  if (!key) {
+    throw new Error("The keyring does not contain its active encryption key");
+  }
+
+  return {
+    ...encrypt(plaintext, key),
+    keyVersion: configuredKeyring.activeVersion,
+  };
+}
+
+export function decryptWithKeyring(
+  payload: VersionedEncryptedPayload,
+  keyring: Keyring | undefined,
+): Buffer {
+  const configuredKeyring = requireKeyring(keyring);
+  const key = configuredKeyring.keys.get(payload.keyVersion);
+  if (!key) {
+    throw new Error(`Unknown encryption key version: ${payload.keyVersion}`);
+  }
+
+  return decrypt(payload, key);
 }
