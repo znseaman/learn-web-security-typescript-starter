@@ -28,7 +28,7 @@ export function verifySignedDownload(
     return false;
   }
 
-  const providedSignature = Buffer.from(signature);
+  const providedSignature = Buffer.from(signature, "hex");
   const expectedSignature = Buffer.from(
     signDownload(signingKey, fileId, expires),
     "hex",

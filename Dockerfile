@@ -11,9 +11,9 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY package.json ./
 COPY src ./src
 COPY public ./public
-RUN mkdir -p data/uploads data/bulk-tax-documents \
+RUN mkdir -p data/uploads data/bulk-tax-documents data/fixtures \
   && chown -R node:node data
-COPY --chown=node:node data/uploads/mystery-shack-tax-exemption.pdf ./data/uploads/
+COPY --chown=node:node data/uploads/mystery-shack-tax-exemption.pdf ./data/fixtures/
 
 USER node
 EXPOSE 3000
