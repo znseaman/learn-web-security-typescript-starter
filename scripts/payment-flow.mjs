@@ -80,28 +80,32 @@ try {
         entry.event === "checkout_started" && entry.orderId === orderId,
     );
 
+  const obj = {
+    invalidKeyRejected: invalidKeyResponse.status === 401,
+    invalidKeyLeftOrderPending: orderAfterInvalidKey.status === "pending",
+    malformedPayloadRejected: malformedResponse.status === 400,
+    malformedPayloadLeftOrderPending:
+      orderAfterMalformedPayload.status === "pending",
+    unapprovedStatusRejected: unapprovedResponse.status === 400,
+    unapprovedStatusLeftOrderPending:
+      orderAfterUnapprovedStatus.status === "pending",
+    approvedWebhookAccepted: approvedResponse.status === 204,
+    orderMarkedPaid: orderAfterApproval.status === "paid",
+    serverCalculatedTotal: orderAfterApproval.total_cents === 2499,
+    noRawPaymentColumns: forbiddenColumns.every(
+      (column) => !orderColumns.includes(column),
+    ),
+    webhookKeyAbsentFromLogs: !logText.includes(pawPalApiKey),
+    checkoutLogKeepsOrderContext:
+      checkoutEvent?.totalCents === 2499 &&
+      !Object.hasOwn(checkoutEvent, "cardNumber") &&
+      !Object.hasOwn(checkoutEvent, "paymentToken"),
+  };
+  
+  console.log()
+
   console.log(
-    JSON.stringify({
-      invalidKeyRejected: invalidKeyResponse.status === 401,
-      invalidKeyLeftOrderPending: orderAfterInvalidKey.status === "pending",
-      malformedPayloadRejected: malformedResponse.status === 400,
-      malformedPayloadLeftOrderPending:
-        orderAfterMalformedPayload.status === "pending",
-      unapprovedStatusRejected: unapprovedResponse.status === 400,
-      unapprovedStatusLeftOrderPending:
-        orderAfterUnapprovedStatus.status === "pending",
-      approvedWebhookAccepted: approvedResponse.status === 204,
-      orderMarkedPaid: orderAfterApproval.status === "paid",
-      serverCalculatedTotal: orderAfterApproval.total_cents === 2499,
-      noRawPaymentColumns: forbiddenColumns.every(
-        (column) => !orderColumns.includes(column),
-      ),
-      webhookKeyAbsentFromLogs: !logText.includes(pawPalApiKey),
-      checkoutLogKeepsOrderContext:
-        checkoutEvent?.totalCents === 2499 &&
-        !Object.hasOwn(checkoutEvent, "cardNumber") &&
-        !Object.hasOwn(checkoutEvent, "paymentToken"),
-    }),
+    JSON.stringify(obj),
   );
 } finally {
   database.close();
