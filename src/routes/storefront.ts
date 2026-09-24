@@ -4,10 +4,21 @@ import { getCurrentSession } from "../auth/sessions.ts";
 import { listCartItems } from "../cart.ts";
 import { listProducts, searchProducts } from "../products.ts";
 import { renderSearchPage, renderStorefrontPage } from "../views/storefront.ts";
+import { createRateLimiter } from "../security/rateLimit.ts";
+import { sendErrorPage } from "../errors.ts";
 
 export function createStorefrontRouter(deps: Dependencies): Router {
   const { db } = deps;
   const router = Router();
+
+  const searchThrottle = createRateLimiter({
+    windowSeconds: 1,
+    max: 5,
+    key: () => "product-search",
+    onLimit: (_req, res) => {
+      sendErrorPage(res, 429, "Search Is Busy", "Try again later");
+    },
+  });
 
   router.get("/", (req, res) => {
     const current = getCurrentSession(db, req.header("cookie"));
@@ -21,7 +32,7 @@ export function createStorefrontRouter(deps: Dependencies): Router {
       .send(renderStorefrontPage(current, products, cartQuantities));
   });
 
-  router.get("/search", (req, res) => {
+  router.get("/search", searchThrottle, (req, res) => {
     const current = getCurrentSession(db, req.header("cookie"));
     const cartQuantities = current
       ? getCartQuantities(current.user.id)
