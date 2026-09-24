@@ -22,6 +22,7 @@ import { createProductsRouter } from "./routes/products.ts";
 import { createStorefrontRouter } from "./routes/storefront.ts";
 import { createSupportRouter } from "./routes/support.ts";
 import { migrateSensitiveDataAtRest } from "./storage/migrations.ts";
+import { createRateLimiter } from "./security/rateLimit.ts";
 
 export function createApp(deps: Dependencies): express.Express {
   migrateSensitiveDataAtRest(deps.db, deps.keyring);
@@ -65,6 +66,13 @@ export function createApp(deps: Dependencies): express.Express {
   app.use(
     "/vendor/simplewebauthn",
     express.static("node_modules/@simplewebauthn/browser/dist/bundle"),
+  );
+
+  app.use(
+    createRateLimiter({
+      windowSeconds: 60,
+      max: 100,
+    }),
   );
 
   app.use(express.urlencoded({ extended: false }));
