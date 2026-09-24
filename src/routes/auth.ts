@@ -58,6 +58,46 @@ import {
   renderTotpLoginPage as renderTotpLoginView,
 } from "../views/auth.ts";
 import { logEvent } from "../logger.ts";
+import { canonicalEmailKey, createRateLimiter } from "../security/rateLimit.ts";
+import { sendErrorPage } from "../errors.ts";
+
+const loginRateLimiter = createRateLimiter({
+  windowSeconds: 15 * 60,
+  max: 20,
+  onLimit: (req, res, state) => {
+    sendErrorPage(res, 429, "Too Many Requests", "Try again later");
+    return;
+  },
+});
+
+const accountRateLimiter = createRateLimiter({
+  windowSeconds: 15 * 60,
+  max: 5,
+  key: canonicalEmailKey,
+  onLimit: (req, res, state) => {
+    sendErrorPage(res, 429, "Too Many Requests", "Try again later");
+    return;
+  },
+});
+
+const passwordResetRateLimiter = createRateLimiter({
+  windowSeconds: 60 * 60,
+  max: 10,
+  onLimit: (req, res, state) => {
+    sendErrorPage(res, 429, "Too Many Requests", "Try again later");
+    return;
+  },
+});
+
+const passwordResetAccountRateLimiter = createRateLimiter({
+  windowSeconds: 60 * 60,
+  max: 3,
+  key: canonicalEmailKey,
+  onLimit: (req, res, state) => {
+    sendErrorPage(res, 429, "Too Many Requests", "Try again later");
+    return;
+  },
+});
 
 type AuthenticationLogFields = {
   success: boolean;
@@ -199,58 +239,63 @@ export function createAuthRouter(deps: Dependencies): Router {
     res.redirect("/account/totp");
   });
 
-  router.post("/login", async (req, res) => {
-    const email = normalizeEmail(String(req.body.email ?? ""));
-    const password = String(req.body.password ?? "");
-    const returnTo = safeReturnTo(String(req.body.returnTo ?? "/"));
-    const user = findUserByEmail(db, email);
+  router.post(
+    "/login",
+    loginRateLimiter,
+    accountRateLimiter,
+    async (req, res) => {
+      const email = normalizeEmail(String(req.body.email ?? ""));
+      const password = String(req.body.password ?? "");
+      const returnTo = safeReturnTo(String(req.body.returnTo ?? "/"));
+      const user = findUserByEmail(db, email);
 
-    if (!user || !(await verifyPassword(password, user.password_hash))) {
+      if (!user || !(await verifyPassword(password, user.password_hash))) {
+        logAuthenticationEvent(req, res, "login_attempt", {
+          email,
+          success: false,
+          failureReason: !user ? "email not found" : "password mismatch",
+          returnTo,
+        });
+        res
+          .status(401)
+          .type("html")
+          .send(renderLoginPage("Invalid email or password", returnTo));
+        return;
+      }
+
+      if (passwordNeedsRehash(user.password_hash)) {
+        await updateUserPassword(db, user.id, password);
+      }
+
+      const challengeToken = getTotpLoginChallengeToken(req.header("cookie"));
+      abandonTotpLoginChallenge(db, req.header("cookie"));
+
+      if (user.has_totp) {
+        const challenge = createTotpLoginChallenge(db, user.id, returnTo);
+        setTotpLoginChallengeCookie(res, challenge);
+        res.redirect("/login/totp");
+        return;
+      }
+
+      const session = createSession(db, user.id);
+
       logAuthenticationEvent(req, res, "login_attempt", {
-        email,
-        success: false,
-        failureReason: !user ? "email not found" : "password mismatch",
+        email: user.email,
+        userId: user.id,
+        role: user.role,
+        success: true,
+        sessionId: session.token,
         returnTo,
       });
-      res
-        .status(401)
-        .type("html")
-        .send(renderLoginPage("Invalid email or password", returnTo));
-      return;
-    }
 
-    if (passwordNeedsRehash(user.password_hash)) {
-      await updateUserPassword(db, user.id, password);
-    }
+      setSessionCookie(res, session);
+      if (challengeToken) {
+        clearTotpLoginChallengeCookie(res);
+      }
 
-    const challengeToken = getTotpLoginChallengeToken(req.header("cookie"));
-    abandonTotpLoginChallenge(db, req.header("cookie"));
-
-    if (user.has_totp) {
-      const challenge = createTotpLoginChallenge(db, user.id, returnTo);
-      setTotpLoginChallengeCookie(res, challenge);
-      res.redirect("/login/totp");
-      return;
-    }
-
-    const session = createSession(db, user.id);
-
-    logAuthenticationEvent(req, res, "login_attempt", {
-      email: user.email,
-      userId: user.id,
-      role: user.role,
-      success: true,
-      sessionId: session.token,
-      returnTo,
-    });
-
-    setSessionCookie(res, session);
-    if (challengeToken) {
-      clearTotpLoginChallengeCookie(res);
-    }
-
-    res.redirect(returnTo);
-  });
+      res.redirect(returnTo);
+    },
+  );
 
   router.post("/login/totp/cancel", (req, res) => {
     abandonTotpLoginChallenge(db, req.header("cookie"));
@@ -258,7 +303,7 @@ export function createAuthRouter(deps: Dependencies): Router {
     res.redirect("/login");
   });
 
-  router.post("/login/totp", (req, res) => {
+  router.post("/login/totp", loginRateLimiter, (req, res) => {
     const requestedReturnTo = safeReturnTo(String(req.body.returnTo ?? "/"));
     const challengeToken = getTotpLoginChallengeToken(req.header("cookie"));
     const challenge = challengeToken
@@ -410,35 +455,42 @@ export function createAuthRouter(deps: Dependencies): Router {
     res.type("html").send(renderPasswordResetRequestPage());
   });
 
-  router.post("/password-reset", (req, res) => {
-    const email = normalizeEmail(String(req.body.email ?? ""));
-    const user = findUserByEmail(db, email);
+  router.post(
+    "/password-reset",
+    passwordResetRateLimiter,
+    passwordResetAccountRateLimiter,
+    (req, res) => {
+      const email = normalizeEmail(String(req.body.email ?? ""));
+      const user = findUserByEmail(db, email);
 
-    if (!user) {
+      if (!user) {
+        logAuthenticationEvent(req, res, "password_reset_request", {
+          email,
+          success: false,
+          failureReason: "email not found",
+        });
+        res.type("html").send(renderPasswordResetRequestConfirmationPage());
+        return;
+      }
+
+      const { token } = createPasswordResetToken(db, user.id);
+      const resetLink = `${appOrigin}/password-reset/${token}`;
+      if (new URL(appOrigin).hostname === "localhost") {
+        console.log(
+          `Bear Mail to ${email}:\nReset your password: ${resetLink}`,
+        );
+      }
+
       logAuthenticationEvent(req, res, "password_reset_request", {
-        email,
-        success: false,
-        failureReason: "email not found",
+        email: user.email,
+        userId: user.id,
+        success: true,
+        resetToken: token,
+        resetLink,
       });
       res.type("html").send(renderPasswordResetRequestConfirmationPage());
-      return;
-    }
-
-    const { token } = createPasswordResetToken(db, user.id);
-    const resetLink = `${appOrigin}/password-reset/${token}`;
-    if (new URL(appOrigin).hostname === "localhost") {
-      console.log(`Bear Mail to ${email}:\nReset your password: ${resetLink}`);
-    }
-
-    logAuthenticationEvent(req, res, "password_reset_request", {
-      email: user.email,
-      userId: user.id,
-      success: true,
-      resetToken: token,
-      resetLink,
-    });
-    res.type("html").send(renderPasswordResetRequestConfirmationPage());
-  });
+    },
+  );
 
   router.get("/password-reset/:token", (req, res) => {
     const token = String(req.params.token ?? "");
