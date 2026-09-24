@@ -81,6 +81,10 @@ export function createApp(deps: Dependencies): express.Express {
   app.use(validateRequestOrigin(deps.appOrigin));
   app.use(
     "/api/products",
+    createRateLimiter({
+      windowSeconds: 60,
+      max: 30,
+    }),
     cors({
       credentials: false,
       methods: ["GET"],
