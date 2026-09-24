@@ -6,6 +6,13 @@ type LogFields = Record<string, unknown>;
 const logPath = join(process.cwd(), "data", "bearly-secure.log");
 
 const REDACTED_KEYS = new Set([
+  "email",
+  "shippingName",
+  "shippingAddress",
+  "shippingCity",
+  "shippingRegion",
+  "shippingPostalCode",
+  "originalName",
   "sessionId",
   "resetToken",
   "resetLink",
