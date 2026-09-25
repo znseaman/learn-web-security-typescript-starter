@@ -1,6 +1,8 @@
 import { Router } from "express";
-import type { Dependencies } from "../dependencies.ts";
+import { findApiKey } from "../auth/apiKeys.ts";
+import { consumeApiKeyQuota } from "../auth/apiKeyUsage.ts";
 import { getCurrentSession } from "../auth/sessions.ts";
+import type { Dependencies } from "../dependencies.ts";
 import {
   findOrderById,
   listAllOrders,
@@ -10,7 +12,11 @@ import {
   type OrderItem,
 } from "../orders/index.ts";
 import { listPublicProducts, type Product } from "../products.ts";
-import { findApiKey } from "../auth/apiKeys.ts";
+import {
+  sendApiKeyQuotaExhausted,
+  setApiKeyQuotaHeaders,
+  toApiKeyQuotaResponse,
+} from "./apiKeyQuota.ts";
 
 type ProductResponse = {
   id: number;
@@ -125,6 +131,13 @@ export function createApiRouter(deps: Dependencies): Router {
       return;
     }
 
+    let quota = consumeApiKeyQuota(db, apiKey.id);
+    if (!quota.allowed) {
+      sendApiKeyQuotaExhausted(res, quota);
+      return;
+    }
+    setApiKeyQuotaHeaders(res, quota);
+
     const orders = listAllOrders(db).map((order) => ({
       id: order.id,
       status: order.status,
@@ -135,6 +148,7 @@ export function createApiRouter(deps: Dependencies): Router {
     res.json({
       integration: "Warehouse Fulfillment Integration",
       orders,
+      quota: toApiKeyQuotaResponse(quota),
     });
   });
 
