@@ -23,6 +23,7 @@ import { createStorefrontRouter } from "./routes/storefront.ts";
 import { createSupportRouter } from "./routes/support.ts";
 import { migrateSensitiveDataAtRest } from "./storage/migrations.ts";
 import { createRateLimiter } from "./security/rateLimit.ts";
+import multer from "multer";
 
 export function createApp(deps: Dependencies): express.Express {
   migrateSensitiveDataAtRest(deps.db, deps.keyring);
@@ -75,8 +76,10 @@ export function createApp(deps: Dependencies): express.Express {
     }),
   );
 
-  app.use(express.urlencoded({ extended: false }));
-  app.use(express.json());
+  app.use(
+    express.urlencoded({ extended: true, limit: deps.maxRequestBodyBytes }),
+  );
+  app.use(express.json({ limit: deps.maxRequestBodyBytes }));
   app.use(createPawPalRouter(deps));
   app.use(validateRequestOrigin(deps.appOrigin));
   app.use(
