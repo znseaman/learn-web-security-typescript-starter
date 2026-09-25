@@ -1,18 +1,17 @@
 import { Router, type Request, type Response } from "express";
-import type { Dependencies } from "../dependencies.ts";
 import { safeReturnTo } from "../auth/accessControl.ts";
+import {
+  createPasswordResetToken,
+  findPasswordResetToken,
+  resetPasswordWithToken,
+  validatePasswordResetToken,
+} from "../auth/passwordResetTokens.ts";
 import {
   hashPassword,
   MAX_PASSWORD_LENGTH,
   passwordNeedsRehash,
   verifyPassword,
 } from "../auth/passwords.ts";
-import {
-  createPasswordResetToken,
-  findPasswordResetToken,
-  validatePasswordResetToken,
-  resetPasswordWithToken,
-} from "../auth/passwordResetTokens.ts";
 import {
   clearSessionCookie,
   setSessionCookie,
@@ -24,6 +23,11 @@ import {
 } from "../auth/sessions.ts";
 import { verifyAndConsumeTotpCode } from "../auth/totp.ts";
 import {
+  countRecentRecoveryAttempts,
+  recordRecoveryAttempt,
+  verifyAndConsumeBackupCode,
+} from "../auth/totpBackupCodes.ts";
+import {
   abandonTotpLoginChallenge,
   clearTotpLoginChallengeCookie,
   createTotpLoginChallenge,
@@ -34,11 +38,6 @@ import {
   setTotpLoginChallengeCookie,
 } from "../auth/totpLoginChallenges.ts";
 import {
-  countRecentRecoveryAttempts,
-  recordRecoveryAttempt,
-  verifyAndConsumeBackupCode,
-} from "../auth/totpBackupCodes.ts";
-import {
   clearTotpSecret,
   createUser,
   findUserByEmail,
@@ -47,6 +46,11 @@ import {
   normalizeEmail,
   updateUserPassword,
 } from "../auth/users.ts";
+import type { Dependencies } from "../dependencies.ts";
+import { sendErrorPage } from "../errors.ts";
+import { logEvent } from "../logger.ts";
+import { protectSignupFromBots } from "../security/botRisk.ts";
+import { canonicalEmailKey, createRateLimiter } from "../security/rateLimit.ts";
 import {
   renderLoginPage,
   renderMfaRecoveryPage,
@@ -57,9 +61,6 @@ import {
   renderSignupPage,
   renderTotpLoginPage as renderTotpLoginView,
 } from "../views/auth.ts";
-import { logEvent } from "../logger.ts";
-import { canonicalEmailKey, createRateLimiter } from "../security/rateLimit.ts";
-import { sendErrorPage } from "../errors.ts";
 
 const loginRateLimiter = createRateLimiter({
   windowSeconds: 15 * 60,
