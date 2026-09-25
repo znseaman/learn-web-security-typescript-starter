@@ -1,7 +1,7 @@
-import { randomBytes } from "node:crypto";
 import cors from "cors";
-import helmet from "helmet";
 import express from "express";
+import helmet from "helmet";
+import { randomBytes } from "node:crypto";
 import { validateRequestOrigin } from "./csrf.ts";
 import type { Dependencies } from "./dependencies.ts";
 import { errorHandler, sendErrorPage } from "./errors.ts";
@@ -11,19 +11,24 @@ import { createApiRouter } from "./routes/api.ts";
 import { createArchiveRouter } from "./routes/archive.ts";
 import { createAssistantRouter } from "./routes/assistant.ts";
 import { createAuthRouter } from "./routes/auth.ts";
-import { createPasskeyRouter } from "./routes/passkey.ts";
 import { createCartRouter } from "./routes/cart.ts";
 import { createCheckoutRouter } from "./routes/checkout.ts";
 import { createFilesRouter } from "./routes/files.ts";
 import { createImagePreviewRouter } from "./routes/imagePreview.ts";
 import { createOrdersRouter } from "./routes/orders.ts";
+import { createPasskeyRouter } from "./routes/passkey.ts";
 import { createPawPalRouter } from "./routes/pawpal.ts";
 import { createProductsRouter } from "./routes/products.ts";
 import { createStorefrontRouter } from "./routes/storefront.ts";
 import { createSupportRouter } from "./routes/support.ts";
-import { migrateSensitiveDataAtRest } from "./storage/migrations.ts";
+import { createLoadShedder } from "./security/loadShedding.ts";
 import { createRateLimiter } from "./security/rateLimit.ts";
-import multer from "multer";
+import { migrateSensitiveDataAtRest } from "./storage/migrations.ts";
+
+const loadShedder = createLoadShedder({
+  maxConcurrent: 50,
+  retryAfterSeconds: 1,
+});
 
 export function createApp(deps: Dependencies): express.Express {
   migrateSensitiveDataAtRest(deps.db, deps.keyring);
@@ -69,6 +74,7 @@ export function createApp(deps: Dependencies): express.Express {
     express.static("node_modules/@simplewebauthn/browser/dist/bundle"),
   );
 
+  app.use(loadShedder);
   app.use(
     createRateLimiter({
       windowSeconds: 60,
