@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { validateRequestOrigin } from "./csrf.ts";
 import type { Dependencies } from "./dependencies.ts";
 import { errorHandler, sendErrorPage } from "./errors.ts";
+import { createRequestIdMiddleware } from "./observability/authAlerts.ts";
 import { createAccountRouter } from "./routes/account.ts";
 import { createAdminRouter } from "./routes/admin.ts";
 import { createApiRouter } from "./routes/api.ts";
@@ -34,6 +35,7 @@ export function createApp(deps: Dependencies): express.Express {
   migrateSensitiveDataAtRest(deps.db, deps.keyring);
   const app = express();
   app.set("trust proxy", deps.trustedProxyHops);
+  app.use(createRequestIdMiddleware());
   app.use((_req, res, next) => {
     const cspNonce = randomBytes(16).toString("base64");
     res.locals.cspNonce = cspNonce;

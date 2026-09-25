@@ -50,7 +50,11 @@ import type { Dependencies } from "../dependencies.ts";
 import { sendErrorPage } from "../errors.ts";
 import { logEvent } from "../logger.ts";
 import { protectSignupFromBots } from "../security/botRisk.ts";
-import { canonicalEmailKey, createRateLimiter } from "../security/rateLimit.ts";
+import {
+  canonicalEmailKey,
+  clientIpKey,
+  createRateLimiter,
+} from "../security/rateLimit.ts";
 import {
   renderLoginPage,
   renderMfaRecoveryPage,
@@ -102,7 +106,10 @@ const passwordResetAccountRateLimiter = createRateLimiter({
 
 type AuthenticationLogFields = {
   success: boolean;
-  userId?: number;
+  requestId: string;
+  sourceIp: string;
+  userId: number | null;
+  outcome: "success" | "failure";
   [key: string]: unknown;
 };
 
@@ -256,6 +263,10 @@ export function createAuthRouter(deps: Dependencies): Router {
           success: false,
           failureReason: !user ? "email not found" : "password mismatch",
           returnTo,
+          requestId: res.locals.requestId,
+          sourceIp: clientIpKey(req),
+          userId: null,
+          outcome: "failure",
         });
         res
           .status(401)
@@ -287,6 +298,9 @@ export function createAuthRouter(deps: Dependencies): Router {
         success: true,
         sessionId: session.token,
         returnTo,
+        requestId: res.locals.requestId,
+        sourceIp: clientIpKey(req),
+        outcome: "success",
       });
 
       setSessionCookie(res, session);
@@ -339,6 +353,9 @@ export function createAuthRouter(deps: Dependencies): Router {
         success: false,
         failureReason: "totp code mismatch",
         returnTo: challenge.return_to,
+        requestId: res.locals.requestId,
+        sourceIp: clientIpKey(req),
+        outcome: "failure",
       });
       if (challengeExhausted) {
         clearTotpLoginChallengeCookie(res);
@@ -368,6 +385,9 @@ export function createAuthRouter(deps: Dependencies): Router {
       success: true,
       sessionId: session.token,
       returnTo: challenge.return_to,
+      requestId: res.locals.requestId,
+      sourceIp: clientIpKey(req),
+      outcome: "success",
     });
 
     setSessionCookie(res, session);
@@ -469,6 +489,10 @@ export function createAuthRouter(deps: Dependencies): Router {
           email,
           success: false,
           failureReason: "email not found",
+          requestId: res.locals.requestId,
+          sourceIp: clientIpKey(req),
+          userId: null,
+          outcome: "failure",
         });
         res.type("html").send(renderPasswordResetRequestConfirmationPage());
         return;
@@ -488,6 +512,9 @@ export function createAuthRouter(deps: Dependencies): Router {
         success: true,
         resetToken: token,
         resetLink,
+        requestId: res.locals.requestId,
+        sourceIp: clientIpKey(req),
+        outcome: "success",
       });
       res.type("html").send(renderPasswordResetRequestConfirmationPage());
     },

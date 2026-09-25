@@ -1,4 +1,5 @@
-import type { Request } from "express";
+import type { Request, RequestHandler } from "express";
+import { randomUUID } from "node:crypto";
 import { logEvent } from "../logger.ts";
 import { clientIpKey } from "../security/rateLimit.ts";
 
@@ -63,5 +64,14 @@ export function createAuthAlertThreshold(
       threshold: options.threshold,
       windowSeconds: options.windowSeconds,
     });
+  };
+}
+
+export function createRequestIdMiddleware(): RequestHandler {
+  return (req, res, next) => {
+    const requestId = randomUUID();
+    res.setHeader("X-Request-ID", requestId);
+    res.locals.requestId = requestId;
+    next();
   };
 }
