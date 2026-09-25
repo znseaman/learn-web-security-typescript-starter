@@ -49,6 +49,7 @@ import {
 import type { Dependencies } from "../dependencies.ts";
 import { sendErrorPage } from "../errors.ts";
 import { logEvent } from "../logger.ts";
+import { createAuthAlertThreshold } from "../observability/authAlerts.ts";
 import { protectSignupFromBots } from "../security/botRisk.ts";
 import {
   canonicalEmailKey,
@@ -125,6 +126,18 @@ function logAuthenticationEvent(
 export function createAuthRouter(deps: Dependencies): Router {
   const { db, appOrigin } = deps;
   const router = Router();
+
+  const recordFailedLogin = createAuthAlertThreshold({
+    signal: "failed_logins",
+    threshold: 3,
+    windowSeconds: 5 * 60,
+  });
+
+  const recordPasswordResetRequest = createAuthAlertThreshold({
+    signal: "password_reset_requests",
+    threshold: 3,
+    windowSeconds: 10 * 60,
+  });
 
   const MIN_PASSWORD_LENGTH = 8;
   const VERIFICATION_RESTART_MESSAGE =
@@ -268,6 +281,7 @@ export function createAuthRouter(deps: Dependencies): Router {
           userId: null,
           outcome: "failure",
         });
+        recordFailedLogin(req, res.locals.requestId, user?.id ?? null);
         res
           .status(401)
           .type("html")
@@ -357,6 +371,7 @@ export function createAuthRouter(deps: Dependencies): Router {
         sourceIp: clientIpKey(req),
         outcome: "failure",
       });
+      recordFailedLogin(req, res.locals.requestId, user.id);
       if (challengeExhausted) {
         clearTotpLoginChallengeCookie(res);
         res.redirect(verificationRestartLoginPath(challenge.return_to));
@@ -494,6 +509,7 @@ export function createAuthRouter(deps: Dependencies): Router {
           userId: null,
           outcome: "failure",
         });
+        recordPasswordResetRequest(req, res.locals.requestId, null);
         res.type("html").send(renderPasswordResetRequestConfirmationPage());
         return;
       }
@@ -516,6 +532,7 @@ export function createAuthRouter(deps: Dependencies): Router {
         sourceIp: clientIpKey(req),
         outcome: "success",
       });
+      recordPasswordResetRequest(req, res.locals.requestId, user.id);
       res.type("html").send(renderPasswordResetRequestConfirmationPage());
     },
   );
