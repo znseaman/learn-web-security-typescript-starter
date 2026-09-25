@@ -1,4 +1,3 @@
-import type { Dependencies } from "../dependencies.ts";
 import { Router, type Response } from "express";
 import { requireAuth } from "../auth/accessControl.ts";
 import {
@@ -6,12 +5,13 @@ import {
   listCartItems,
   type CartItem,
 } from "../cart.ts";
+import { csrfTokensMatch } from "../csrf.ts";
+import type { Dependencies } from "../dependencies.ts";
 import { sendErrorPage } from "../errors.ts";
 import {
-  renderCheckoutPage,
-  renderPawPalProcessingPage,
-} from "../views/checkout.ts";
-import { reserveAcornFulfillment } from "../integrations/acornFulfillment.ts";
+  isAcornFulfillmentTimeout,
+  reserveAcornFulfillmentWithTimeout,
+} from "../integrations/acornFulfillment.ts";
 import {
   createPawPalCheckoutUrl,
   createPawPalReference,
@@ -22,7 +22,10 @@ import {
   findOrderById,
   InsufficientInventoryError,
 } from "../orders/index.ts";
-import { csrfTokensMatch } from "../csrf.ts";
+import {
+  renderCheckoutPage,
+  renderPawPalProcessingPage,
+} from "../views/checkout.ts";
 
 export function sendFulfillmentTimeout(
   response: Response,
@@ -147,9 +150,24 @@ export function createCheckoutRouter(deps: Dependencies): Router {
       region: shippingRegion,
       postalCode: shippingPostalCode,
     };
-    await reserveAcornFulfillment(shippingDetails, {
-      delayMs: deps.acornFulfillmentDelayMs,
-    });
+
+    try {
+      await reserveAcornFulfillmentWithTimeout(shippingDetails, {
+        delayMs: deps.acornFulfillmentDelayMs,
+      });
+    } catch (error) {
+      if (!isAcornFulfillmentTimeout(error)) {
+        throw error;
+      }
+
+      sendFulfillmentTimeout(
+        res,
+        items,
+        current.session.csrf_token,
+        current.user.display_name,
+      );
+      return;
+    }
 
     items = listCartItems(db, current.user.id);
     if (items.length === 0) {

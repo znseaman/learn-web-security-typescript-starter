@@ -11,6 +11,8 @@ try {
   server = app.listen(deps.port, () => {
     console.log(`Bearly Secure is running at http://localhost:${deps.port}`);
   });
+  server.headersTimeout = 10_000;
+  server.requestTimeout = 30_000;
   server.once("error", (error) => {
     deps.db.close();
     throw error;
