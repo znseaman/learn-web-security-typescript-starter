@@ -81,6 +81,7 @@ export function renderSignupPage(error?: string): string {
       <div class="form-message auth-message" aria-live="polite">${errorMarkup(error)}</div>
       <form method="post" action="/signup" class="auth-form">
         <label>Name<input name="displayName" type="text" autocomplete="name" required autofocus></label>
+        <label hidden>Leave this field blank<input name="companyWebsite" type="text" tabindex="-1" autocomplete="off"></label>
         <label>Email<input name="email" type="email" autocomplete="email" required></label>
         <label>Password<input name="password" type="password" autocomplete="new-password" minlength="${MIN_PASSWORD_LENGTH}" maxlength="${MAX_PASSWORD_LENGTH}" required></label>
         <button type="submit">Create account</button>
