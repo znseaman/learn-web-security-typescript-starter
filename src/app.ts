@@ -64,6 +64,14 @@ export function createApp(deps: Dependencies): express.Express {
   app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "bearly-secure" });
   });
+  app.get("/.well-known/security.txt", (_req, res) => {
+    const MILLISECONDS_IN_180_DAYS = 180 * 24 * 60 * 60 * 1000;
+    const expires = new Date(Date.now() + MILLISECONDS_IN_180_DAYS);
+    res.type("text/plain").send(`
+Contact: mailto:security@bearlysecure.example
+Policy: https://bearlysecure.example/security-policy
+Expires: ${expires.toISOString()}`);
+  });
   app.use(
     ["/shipping-widget.css", "/shipping-widget.js"],
     helmet({
